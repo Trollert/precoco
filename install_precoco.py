@@ -15,6 +15,6 @@ if not os.path.exists('update.zip'):
 with zipfile.ZipFile('update.zip', 'r') as zip_ref:
     zip_ref.extractall()
 
-zip_path = '/precoco-master'
+zip_path = './precoco-master'
 copy_tree(zip_path, '.')
 remove_tree(zip_path)
