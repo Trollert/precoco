@@ -9,7 +9,7 @@ import zipfile
 # try:
 from precoco.common.elementfunctions import pre_cleanup
 from precoco.common.UI import create_ui
-from precoco.common.miscfunctions import read_user_config, is_up_to_date, get_update
+from precoco.common.miscfunctions import read_user_config, is_up_to_date
 # except ImportError:
 #     urlretrieve('https://raw.githubusercontent.com/Trollert/CoCoPreProcessor/master/update_script.py', filename=os.getcwd() + '/update_script.py')
 #     messagebox.showerror('Warning', 'Some modules could not be found! \n\nUpdate manually by clicking update.py!')
@@ -25,8 +25,6 @@ def run():
     path_directory_reports, _local_version_ = read_user_config()
     # check version and get new updater if out of date
     flag_up_to_date = is_up_to_date(_local_version_)
-    if not flag_up_to_date:
-        get_update()
 
     # ask user for file
     filename = filedialog.askopenfilename(initialdir=path_directory_reports, title="Select file", filetypes=(("HTML files", "*.htm"), ("all files", "*.*")))

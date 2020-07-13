@@ -1,5 +1,7 @@
 import configparser
 import os
+import sys
+import subprocess
 from urllib.request import urlopen, urlretrieve
 from urllib.error import URLError
 from tkinter import filedialog, messagebox
@@ -74,14 +76,18 @@ def is_up_to_date(_local_version_):
         return True
 
 
-def get_update(path=os.getcwd() + '/precoco/update/update.zip'):
+def install_update():
     """
     pulls the new updater from github to the passed working directory
     :param path: directory of update.py
     :return: None
     """
+    # cwed = os.getcwd()
+    # print(cwed)
+    subprocess.Popen(['python', os.getcwd()+'/install_precoco.py'])
+    sys.exit()
     # urlretrieve('https://raw.githubusercontent.com/Trollert/CoCoPreProcessor/master/update_script.py', filename=path)
-    urlretrieve('https://github.com/Trollert/precoco/archive/master.zip', filename=path)
+    # urlretrieve('https://github.com/Trollert/precoco/archive/master.zip', filename=path)
 
 
 # configure german for dateutil parser
