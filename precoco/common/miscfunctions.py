@@ -81,7 +81,7 @@ def get_update(path=os.getcwd() + '/precoco/update/update.zip'):
     :return: None
     """
     # urlretrieve('https://raw.githubusercontent.com/Trollert/CoCoPreProcessor/master/update_script.py', filename=path)
-    urlretrieve('https://github.com/Trollert/CoCoPreProcessor/archive/master.zip', filename=path)
+    urlretrieve('https://github.com/Trollert/precoco/archive/master.zip', filename=path)
 
 
 # configure german for dateutil parser
