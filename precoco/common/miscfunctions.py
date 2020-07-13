@@ -62,7 +62,7 @@ def is_up_to_date(_local_version_):
     :return: bool if up to date
     """
     try:
-        _global_version_ = urlopen('https://raw.githubusercontent.com/Trollert/CoCoPreProcessor/master/_version_.txt').read().decode('utf-8')
+        _global_version_ = urlopen('https://raw.githubusercontent.com/Trollert/precoco/master/__version__.txt').read().decode('utf-8')
     except URLError:
         messagebox.showwarning('No network connection',
                                "Couldn't check the current PreCoCo version. \n Check your internet connection! \n Proceed with current version!")
