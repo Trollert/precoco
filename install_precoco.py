@@ -18,3 +18,4 @@ with zipfile.ZipFile('update.zip', 'r') as zip_ref:
 zip_path = './precoco-master'
 copy_tree(zip_path, '.')
 remove_tree(zip_path)
+os.remove('update.zip')
