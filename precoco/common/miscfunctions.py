@@ -41,17 +41,17 @@ def read_user_config():
     :return: tuple (work folder path, version number)
     """
     path_config = root_dir + '/data/user_config.ini'
+    with open('__version__.txt', 'r') as f:
+        _local_version_ = f.read()
+
     if os.path.exists(path_config):
         Config.read(path_config)
         path_folder_user = Config['PATHS']['opening_dir']
-        _local_version_ = Config['VERSION']['precoco_version']
     else:
         messagebox.showinfo('Info', 'Choose your folder to be opened at startup now!')
         Config['PATHS'] = {}
         Config['PATHS']['opening_dir'] = filedialog.askdirectory(title='Choose the directory to open when using PreCoco!')
         path_folder_user = Config['PATHS']['opening_dir']
-        Config['VERSION'] = {}
-        Config['VERSION']['precoco_version'], _local_version_ = '0.0', '0.0'
         with open(path_config, 'w') as configfile:
             Config.write(configfile)
     return path_folder_user, _local_version_

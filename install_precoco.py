@@ -1,7 +1,7 @@
 import zipfile
 from distutils.dir_util import copy_tree, remove_tree
 import os
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlretrieve
 from tkinter import messagebox
 from urllib.error import URLError
 
