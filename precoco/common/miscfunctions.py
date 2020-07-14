@@ -113,22 +113,23 @@ class GermanParserInfo(parser.parserinfo):
               ("Dez.", "Dezember")]
 
 
-# returns TRUE if input string can be interpreted as a date
-# if fuzzy is true, ignore unknown tokens in string
-def is_date(date_input, flag_fuzzy):
+def is_date(date_input, ignore_whitespace=False):
+    """
+    accepts a string which is evaluated whether it represents a date
+    :param date_input: str
+    :param ignore_whitespace: bool
+    :return: bool
+    """
     try:
-        parser.parse(date_input, fuzzy=flag_fuzzy, parserinfo=GermanParserInfo())
-        return [True, False]
-    except ValueError:
-        try:
+        if not ignore_whitespace:
+            parser.parse(date_input, parserinfo=GermanParserInfo())
+        else:
             date_input = re.sub('\s', '', date_input)
-            parser.parse(date_input, fuzzy=flag_fuzzy, parserinfo=GermanParserInfo())
-            return [True, True]
-        # todo: clear up exceptions
-        except:
-            return [False]
+            parser.parse(date_input, parserinfo=GermanParserInfo())
+        return True
+    # TODO: catch exceptions properly
     except:
-        return [False]
+        return False
 
 
 # save repl_dict to report folder with name
@@ -159,5 +160,16 @@ def split_non_consecutive(data):
     else:
         consec_list.append(inner_list.copy())
     return consec_list
+
+
+def pre_parsing(filename):
+    with open(filename, 'r', encoding='UTF-8') as file_input:
+        htm_text = file_input.read()
+        htm_text = htm_text.replace('CO2', 'CO<sub>2</sub>')
+        htm_text = htm_text.replace('–', '-')
+        htm_text = htm_text.replace('—', '-')  # replaces en dash with normal dash
+        htm_text = htm_text.replace('&nbsp;', ' ')  # replaces non breaking spaces
+    with open(filename, 'w', encoding='UTF-8') as file_input:
+        file_input.write(htm_text)
 
 

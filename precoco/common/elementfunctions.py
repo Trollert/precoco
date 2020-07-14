@@ -1,7 +1,7 @@
 import pickle
 import re
 import os
-from lxml import etree
+from lxml import etree, html
 from lxml.html.clean import Cleaner
 from textwrap import wrap as text_wrap
 from tkinter import messagebox
@@ -22,80 +22,48 @@ def get_false_numbers(tree, path):
     """
     # check numbers in table cells
     # get all tables that are not footnote tables
-    el_standard_tables = tree.xpath('//table[not(@class="footnote")]')
+    el_table_text_cells = tree.xpath('//table[not(@class="footnote")]//*[normalize-space(text())]')
     list_false_number_matches = []
     # if save numbers file exists, replace matches before finding new ones
     if os.path.exists(path + '/save_numbers.pkl'):
         save_file = open(path + '/save_numbers.pkl', 'rb')
         save_dict = pickle.load(save_file)
         save_file.close()
-        for table in el_standard_tables:
-            for row in table:
-                for cell in row:
-                    if cell.text is not None:
-                        for old, new in save_dict.items():
-                            cell.text = cell.text.replace(old, new)
+        for cell in el_table_text_cells:
+            if cell.text is not None:
+                for old, new in save_dict.items():
+                    cell.text = cell.text.replace(old, new)
 
-    for table in el_standard_tables:
-        el_subtables = []
-        i_format_count = [0] * (len(pt.regNumbers) + 1)
-        # select all non-empty td-elements, beginning at second column
-        el_subtables.append(table.xpath('.//tr/td[position() > 1 and normalize-space(text())]'))
-        for row in el_subtables:
-            for cell in row:
-                # trim leading/trailing whitespace (not sure why its done here)
-                # cell.text = cell.xpath('normalize-space(text())')
-                if cell.text:
-                    cell_format = [0] * len(pt.regNumbers)
-                    for i in range(len(pt.regNumbers)):
-                        # breaks after first match to count what format the number was displayed
-                        if cell.text and pt.regNumbers[i].fullmatch(str(cell.text)):
-                            cell_format[i] += 1
-                            break
-                    # TODO: Make this date br matching better
-                    # stupid hacky shit to check cells with br-tag for date matching
-                    cell_without_br = ''
-                    if cell.find('br') is not None:
-                        all_br = cell.findall('br')
-                        cell_without_br = cell.text
-                        for br in all_br:
-                            cell_without_br += ' ' + br.tail
-                    if cell_without_br:
-                        cell_without_br = re.sub(r'(\t|\n)', '', cell_without_br)
-
-                    # if any format matched increase the table counter and dont change anything
-                    if sum(cell_format):
-                        i_format_count = [a + b for a, b in zip(i_format_count, cell_format)]
-                    # if br-tags where present within the cell, check that first
-                    elif cell_without_br and is_date(cell_without_br, False)[0]:
-                        i_format_count[-1] += 1
-                    # if not check normally
-                    elif is_date(cell.text, False)[0]:
-                        i_format_count[-1] += 1
-                        if is_date(cell.text, False)[1]:
-                            cell.text = re.sub('\s', '', cell.text)
-                    elif any(reg.fullmatch(cell.text) for reg in pt.regMisc + pt.regHeaderContent):
-                        continue
-                    # if no match could be found, try to fix it or move it to false match list
-                    else:
-                        if gf.b_fix_numbers.get():
-                            # if cell only contains number tokens, try to fix format
-                            if re.fullmatch('[0-9,. \-+]*', cell.text_content()):
-                                # drop br-tag if one is found
-                                if cell.find('br'):
-                                    cell.find('br').drop_tag()
-                                # if, after removing whitespace, the resulting format matches a number format,
-                                # remove the whitespace from tree element
-                                if any(list(reg.fullmatch(re.sub(r'\s+', '', cell.text)) for reg in pt.regNumbers)):
-                                    cell.text = re.sub(r'\s+', '', cell.text)
-                                # if you cant fix it, append to false number list
-                                else:
-                                    list_false_number_matches.append(cell.text)
-                            # otherwise append it to false number match list
-                            else:
-                                list_false_number_matches.append(cell.text)
+    for cell in el_table_text_cells:
+        if cell.text is not None:
+            if is_number(cell):
+                remove_br_tag(cell)
+            elif is_date(cell.text_content()):
+                remove_br_tag(cell)
+            elif is_date(cell.text_content(), ignore_whitespace=True):
+                remove_br_tag(cell)
+                cell.text = re.sub('\s', '', cell.text)
+            elif any(reg.fullmatch(cell.text_content()) for reg in pt.regMisc + pt.regHeaderContent):
+                continue
+            # if no match could be found, try to fix it or move it to false match list
+            else:
+                if gf.b_fix_numbers.get():
+                    # if cell only contains number tokens, try to fix format
+                    if re.fullmatch(r'[0-9,. \-+]*', cell.text_content()):
+                        # drop br-tag if one is found
+                        remove_br_tag(cell)
+                        # if, after removing whitespace, the resulting format matches a number format,
+                        # remove the whitespace from tree element
+                        if any(reg.fullmatch(re.sub(r'\s+', '', cell.text)) for reg in pt.regNumbers):
+                            cell.text = re.sub(r'\s+', '', cell.text)
+                        # if you cant fix it, append to false number list
                         else:
                             list_false_number_matches.append(cell.text)
+                    # otherwise append it to false number match list
+                    else:
+                        list_false_number_matches.append(cell.text)
+                else:
+                    list_false_number_matches.append(cell.text)
     list_false_number_matches = list(dict.fromkeys(list_false_number_matches))
     return list_false_number_matches
 
@@ -152,8 +120,8 @@ def replace_number_list(tree, list_new, list_old, report_path):
     """
     el_numbers_table = tree.xpath('//table[not(@class="footnote")]/tr/td[normalize-space(text())]')
     # get a list of listbox lines
-    list_temp_new = list_new
-    list_temp_old = list_old
+    list_temp_new = list_new.copy()
+    list_temp_old = list_old.copy()
     for i in reversed(range(len(list_temp_old))):
         if list_temp_old[i] == list_temp_new[i]:
             list_temp_old.pop(i)
@@ -181,10 +149,10 @@ def replace_word_list(tree, list_new, list_old, report_path):
     """
     el_text = tree.xpath('.//*[normalize-space(text())]')
     # get a list of listbox lines
-    corrected_list = list(list_new)
+    corrected_list = list(list_new).copy()
 
     # create duplicate to not create confusion while popping
-    list_temp_old = list_old
+    list_temp_old = list_old.copy()
 
     # remove unaffected entries from both lists
     for i in reversed(range(len(list_temp_old))):
@@ -644,7 +612,7 @@ def set_headers(tree):
                 if cell.text:
                     # first compare cell content to header content matches or date type
                     # if anything matches, set current row to header row
-                    if any(list(reg.fullmatch(cell.text) for reg in pt.regHeaderContent)) or is_date(cell.text, False)[0]:
+                    if any(list(reg.fullmatch(cell.text) for reg in pt.regHeaderContent)) or is_date(cell.text):
                         flag_is_header = True
                         i_header_rows = table.index(row)
                     # then compare to number matches
@@ -808,15 +776,26 @@ def pre_cleanup(tree):
     :param tree:
     :return: tree
     """
+    for p in tree.xpath('//table//span'):
+        p.drop_tag()
     # replace </p><p> in tables with <br>
     # takes the longest, might find better alternative
     for td in tree.xpath('//td[count(p)>1]'):
         for p in td.findall('p')[:-1]:
             p.append(etree.Element('br'))
+        # print(html.tostring(td))
 
     # remove p tags in tables
-    for p in tree.xpath('//table//p | //table//span'):
+    for p in tree.xpath('//table//p'):
         p.drop_tag()
+        if p.text:
+            # print(p.text_content())
+            # print('-------------')
+            p.text = re.sub(r'[\n\r]', '', p.text)
+            p.text = re.sub(r'\s{2,}', ' ', p.text)
+
+    # for t in tree.xpath('//table'):
+    #     print(html.tostring(t))
 
     # change all header hierarchies higher than 3 to 3
     for e in tree.xpath('//*[self::h4 or self::h5 or self::h6]'):
@@ -833,15 +812,15 @@ def pre_cleanup(tree):
         # hacky and not that versatile as of now
         for e in tree.xpath('.//table//*[text()[not(normalize-space()="")]]'):
             if e.text:
-                e.text = re.sub('\s*?\.{2,}', '', e.text)
-                e.text = re.sub(' \)', ')', e.text)
-                e.text = re.sub('\)\s*?\.', ')', e.text)
+                e.text = re.sub(r'\s*?\.{2,}', '', e.text)
+                e.text = re.sub(r' \)', ')', e.text)
+                e.text = re.sub(r'\)\s*?\.', ')', e.text)
                 if len(e):
                     for i in e:
                         if i.tail:
-                            i.tail = re.sub('\s*?\.{2,}', '', i.tail)
-                            i.tail = re.sub(' \)', ')', i.tail)
-                            i.tail = re.sub('\)\s*?\.', ')', i.tail)
+                            i.tail = re.sub(r'\s*?\.{2,}', '', i.tail)
+                            i.tail = re.sub(r' \)', ')', i.tail)
+                            i.tail = re.sub(r'\)\s*?\.', ')', i.tail)
 
     # strip all unnecessary white space
     for td in tree.xpath('//table//td'):
@@ -928,11 +907,10 @@ def generate_final_tree(arg_list):
     tree = arg_list[0]
     false_numbers = arg_list[1]
     false_words = arg_list[2]
-    new_numbers = arg_list[3]
-    new_words = arg_list[4]
+    new_numbers = arg_list[3].return_list()
+    new_words = arg_list[4].return_list()
     file_path = arg_list[5]
     report_path = os.path.dirname(file_path)
-
     if gf.b_remove_false_text_breaks.get():
         tree = remove_false_text_breaks(tree)
     if gf.b_span_headings.get():
@@ -945,8 +923,10 @@ def generate_final_tree(arg_list):
     if gf.b_remove_empty_rows.get():
         tree = remove_empty_rows(tree)
     # big_fucking_table()
-    replace_number_list(tree, new_numbers, false_numbers, report_path)
-    replace_word_list(tree, new_words, false_words, report_path)
+    # print(false_numbers)
+    tree = replace_number_list(tree, new_numbers, false_numbers, report_path)
+    # print(false_words)
+    tree = replace_word_list(tree, new_words, false_words, report_path)
     if gf.b_set_unordered_lists.get():
         tree = set_unordered_list(tree)
     if gf.b_set_footnotes.get():
@@ -966,8 +946,9 @@ def generate_final_tree(arg_list):
         messagebox.showwarning('Warning', '\n'.join(gf.error_log))
 
     post_cleanup(tree, file_path)
+    gf.error_log.clear()
+    messagebox.showinfo('File generated!', 'File successfully generated!')
 
-    gf.tk.destroy()
 
 ####################
 # Helper functions #
@@ -996,6 +977,31 @@ def get_max_columns(table):
 def add_to_error_log(text):
     gf.error_log.append(text)
 
+
+def is_number(cell):
+    """
+    takes a HtmlElement or string to evaluate whether it's a valid number, depending on regNumbers pattern list
+    :param cell: HtmlElement, String
+    :return: bool
+    """
+    if type(cell) == html.HtmlElement:
+        if any(regex.fullmatch(cell.text_content()) for regex in pt.regNumbers):
+            return True
+    elif type(cell) == str:
+        if any(regex.fullmatch(cell) for regex in pt.regNumbers):
+            return True
+    return False
+
+
+def remove_br_tag(cell, add_whitespace=False):
+    if cell.find('br') is not None:
+        for i in cell.findall('br'):
+            if add_whitespace:
+                i.tail = ' ' + i.tail
+            i.drop_tag()
+        return True
+    else:
+        return False
 
 def split_non_consecutive(data):
     """

@@ -189,7 +189,7 @@ class ListboxEditable(object):
     list = []
 
     # Constructor
-    def __init__(self, master_frame, custom_list, popup_menu=False, fontLabels='Calibri', sizeLabels2=9, width=45):
+    def __init__(self, master_frame, custom_list=[], popup_menu=False, fontLabels='Calibri', sizeLabels2=9, width=45):
         # *** Assign the first variables ***
         # The frame that contains the ListboxEditable
         self.frameMaster = master_frame
@@ -212,6 +212,31 @@ class ListboxEditable(object):
         # self.bind("<Button-3>", self.popup)
         #
 
+    def update_list(self, custom_list):
+        self.list = list(custom_list)
+        self.numberRows = len(self.list)
+
+    # *** Add user words popup *** #
+    def popup(self, event, ind):
+        labelMenu = 'menu' + str(ind)
+        try:
+            getattr(self, labelMenu).tk_popup(event.x_root, event.y_root, 0)
+        finally:
+            getattr(self, labelMenu).grab_release()
+
+    def add_user_word(self, ind):
+        with open(root_dir + '/data/user_words.txt', 'a', encoding='UTF-8') as f:
+            f.write(getattr(self, 'label' + str(ind)).cget('text') + '\n')
+
+    def clear_list(self):
+        ind = 0
+        for row in self.list:
+            labelName = 'label' + str(ind)
+            getattr(self, labelName).destroy()
+            ind += 1
+
+    # Place
+    def placeListBoxEditable(self):
         # *** Create the necessary labels ***
         ind = 0
         for row in self.list:
@@ -243,28 +268,6 @@ class ListboxEditable(object):
             getattr(self, labelName).bind("<Up>", lambda event, a=ind: self.up(a))
             getattr(self, labelName).bind("<Down>", lambda event, a=ind: self.down(a))
 
-            # Increase the iterator
-            ind = ind + 1
-
-    # *** Add user words popup *** #
-    def popup(self, event, ind):
-        labelMenu = 'menu' + str(ind)
-        try:
-            getattr(self, labelMenu).tk_popup(event.x_root, event.y_root, 0)
-        finally:
-            getattr(self, labelMenu).grab_release()
-
-    def add_user_word(self, ind):
-        with open(root_dir + '/data/user_words.txt', 'a', encoding='UTF-8') as f:
-            f.write(getattr(self, 'label' + str(ind)).cget('text') + '\n')
-
-    # Place
-    def placeListBoxEditable(self):
-        # Go row by row placing it
-        ind = 0
-        for row in self.list:
-            # Get the name of the label
-            labelName = 'label' + str(ind)
             # Place the variable
             getattr(self, labelName).grid(row=ind, column=0)
 
@@ -360,4 +363,5 @@ class ListboxEditable(object):
         # getattr(self, labelName).focus_set()
 
     def return_list(self):
+        # print(self.list)
         return self.list

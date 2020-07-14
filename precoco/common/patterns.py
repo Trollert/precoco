@@ -9,7 +9,7 @@ from precoco.common.globalflags import root_dir
 regFootnote = [
     re.compile('\s*?[(\[]?\d{1,2}[)\]]?\s*?'),        # 1; 1); 1]; (1); [1]
     re.compile('\s*?\(?\*{1,9}\)?\s*?'),              # *; *******); (****)
-    re.compile('\s*?[a-z]\)?\s*?')                    # a; a)
+    re.compile('\s*?\(?[a-z]\)?\s*?')                    # a; a); (a)
     ]
 
 # compile number format as regex objects
