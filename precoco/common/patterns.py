@@ -37,7 +37,7 @@ regMisc = [
 
 # compile possible header content
 regHeaderContent = [
-    re.compile('^\s*?(§§)?\(?(in)?\s*?(Tsd|Mio|Mrd|T|Millionen|Million|billion|Milliarden|tausend)?\.?\s?([€$£%‰]|EUR|TEUR|Jahre|tagen|prozent|qm|m2|sqm|m|km)\)?\s?(Tsd|Mio|Mrd|T|Millionen|Million|billion|Milliarden|tausend|thousands)?\s*?$',
+    re.compile('^\s*?(§§)?\(?(in)?\s*?(Tsd|Mio|Mrd|T|Millionen|Million|billion|Milliarden|tausend)?\.?\s?([€$£%‰]|EUR|EURO|TEUR|Jahre|tagen|prozent|qm|m2|sqm|m|km)\)?\s?(Tsd|Mio|Mrd|T|Millionen|Million|billion|Milliarden|tausend|thousands)?\s*?$',
                re.IGNORECASE | re.MULTILINE),
     re.compile('^\s*?(§§)?\(?(\$|€|£)(’|‘|\')(000|m)\)?\s*?$', re.IGNORECASE | re.MULTILINE)
 ]
@@ -50,8 +50,11 @@ regFalseWords = [
     re.compile(r'(\b[A-ZÖÄÜa-zäöüß][a-zäöüß]*?[a-zäöüß][A-ZÄÖÜ][a-zäöüß]*?\b)', re.MULTILINE),  # CashFlow, cashFlow
     re.compile(r'(\b[A-ZÖÄÜa-zäöüß][a-zäöüß]*?\b-\b[a-zäöüß]{1,}?\b)', re.MULTILINE),  # ex-terne, Ex-terne
     re.compile(r'\b[A-ZÖÄÜa-zäöüß]{1,}?soder\b', re.MULTILINE),  # Unternehmungsoder
-    re.compile(r'\b[A-ZÖÄÜa-zäöüß]{1,}?sund\b', re.MULTILINE)  # Unternehmungsund
+    re.compile(r'\b[A-ZÖÄÜa-zäöüß]{1,}?sund\b', re.MULTILINE),  # Unternehmungsund
+    re.compile(r'\b[A-ZÖÄÜa-zäöüß]{1,}?\b\s-\b[A-ZÖÄÜa-zäöüß]{1,}?\b', re.MULTILINE) # Bilanz -vorstellung
 ]
+
+regURL = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
 
 reg_false_break_indicator_end = re.compile(r'[a-zäöüß,]\s?$')
 

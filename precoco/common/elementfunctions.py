@@ -88,7 +88,7 @@ def get_false_words(tree, path):
         save_dict = pickle.load(save_file)
         save_file.close()
         for e in el_all_text:
-            if e.text:
+            if e.text is not None:
                 for old, new in save_dict.items():
                     e.text = e.text.replace(old, new)
                     # check tail as well
@@ -98,11 +98,20 @@ def get_false_words(tree, path):
                                 t.tail = t.tail.replace(old, new)
     # regex match on every text element to check whether it matches a wrongfully separated word
     for e in el_all_text:
-        if e.text:
+        if e.text is not None:
+            # search the whole text for URLs and put them in a list
+            # this is done via list comprehension because the regex.findall returns a list of tuples
+            url_matches = [x[0] for x in pt.regURL.findall(e.text_content())]
             for regex_match in pt.regFalseWords:
                 list_current_matches = regex_match.findall(e.text_content())
-                if len(list_current_matches):
+                # if matches were found
+                if list_current_matches:
+                    # print(list_current_matches)
                     list_current_matches = [elem for elem in list_current_matches if elem not in pt.lAllowedWords]
+                    # compare them to eventually found urls in the current element
+                    if url_matches:
+                        # don't add them to the new list if they're a part of a URL
+                        list_current_matches = [elem for elem in list_current_matches if any(elem not in url for url in url_matches)]
                     list_all_matches.extend(list_current_matches)
     list_false_word_matches = list(dict.fromkeys(list_all_matches))
     return list_false_word_matches
@@ -776,8 +785,8 @@ def pre_cleanup(tree):
     :param tree:
     :return: tree
     """
-    for p in tree.xpath('//table//span'):
-        p.drop_tag()
+    for span in tree.xpath('//table//span'):
+        span.drop_tag()
     # replace </p><p> in tables with <br>
     # takes the longest, might find better alternative
     for td in tree.xpath('//td[count(p)>1]'):
@@ -791,7 +800,7 @@ def pre_cleanup(tree):
         if p.text:
             # print(p.text_content())
             # print('-------------')
-            p.text = re.sub(r'[\n\r]', '', p.text)
+            # p.text = re.sub(r'[\n\r]', '', p.text)
             p.text = re.sub(r'\s{2,}', ' ', p.text)
 
     # for t in tree.xpath('//table'):
@@ -822,12 +831,20 @@ def pre_cleanup(tree):
                             i.tail = re.sub(r' \)', ')', i.tail)
                             i.tail = re.sub(r'\)\s*?\.', ')', i.tail)
 
-    # strip all unnecessary white space
+    # strip all leading and trailing white space in tables
     for td in tree.xpath('//table//td'):
         if td.text is not None:
             td.text = td.text.strip()
-        if td.tail is not None:
-            td.tail = td.tail.strip()
+        if len(td):
+            for tail in td:
+                if tail.tail is not None:
+                    tail.tail = tail.tail.strip()
+
+    for txt in tree.xpath('body//*[text()]'):
+        if txt.text is not None:
+            txt.text = re.sub(r'\s{2,}', ' ', txt.text)
+        if txt.tail is not None:
+            txt.tail = re.sub(r'\s{2,}', ' ', txt.tail)
 
     # remove li tags in td elements
     for li in tree.xpath('//td/li'):

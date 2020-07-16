@@ -5,7 +5,7 @@ from functools import partial
 from lxml import html
 
 import precoco.common.globalflags as gf
-from precoco.common.UIfunctions import display_changelog, VerticalScrolledFrame, ListboxEditable
+from precoco.common.UIfunctions import display_changelog, VerticalScrolledFrame, ListboxEditable, create_tool_tip
 from precoco.common.elementfunctions import get_false_numbers, get_false_words, generate_final_tree, pre_cleanup
 from precoco.common.miscfunctions import install_update, pre_parsing, read_user_config, is_up_to_date
 
@@ -180,34 +180,43 @@ class UserInterface(Frame):
         self.FrameChecks = Frame(self.FrameOptions, width=25)
         self.FrameChecks.pack(fill='y', side='top')
 
-        self.CheckboxHeaders = Checkbutton(self.FrameChecks, anchor='w', text='convert headers',
+        self.CheckboxHeaders = Checkbutton(self.FrameChecks, anchor='w', text='detect headers',
                                            variable=gf.b_set_headers)
-        self.CheckboxFootnotes = Checkbutton(self.FrameChecks, anchor='w', text='convert footnotes',
+        self.CheckboxFootnotes = Checkbutton(self.FrameChecks, anchor='w', text='detect footnotes',
                                              variable=gf.b_set_footnotes)
         self.CheckboxEmptyRows = Checkbutton(self.FrameChecks, anchor='w', text='remove empty rows',
                                              variable=gf.b_remove_empty_rows)
         self.CheckboxFalseTextBreaks = Checkbutton(self.FrameChecks, anchor='w', text='remove false text breaks',
                                                    variable=gf.b_remove_false_text_breaks)
-        self.CheckboxVerticalMerge = Checkbutton(self.FrameChecks, anchor='w', text='vertically merge tables (§§)',
+        self.CheckboxVerticalMerge = Checkbutton(self.FrameChecks, anchor='w', text='vertically merge tables',
                                                  variable=gf.b_merge_tables_vertically)
         self.CheckboxRenamePics = Checkbutton(self.FrameChecks, anchor='w', text='rename .png to .jpg',
                                               variable=gf.b_rename_pics)
         self.CheckboxSplitRowspan = Checkbutton(self.FrameChecks, anchor='w', text='split row span',
                                                 variable=gf.b_split_rowspan)
-        self.CheckboxSetUnorderedLists = Checkbutton(self.FrameChecks, anchor='w', text='set unordered lists',
+        self.CheckboxSetUnorderedLists = Checkbutton(self.FrameChecks, anchor='w', text='detect unordered lists',
                                                      variable=gf.b_set_unordered_lists)
-        self.CheckboxIndentUnorderedLists = Checkbutton(self.FrameChecks, anchor='w', text='Indent unordered lists?',
+        self.CheckboxIndentUnorderedLists = Checkbutton(self.FrameChecks, anchor='w', text='indent unordered lists?',
                                                         variable=gf.b_indent_unordered_list)
 
         self.CheckboxHeaders.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxHeaders, 'detect table headers and set them accordingly')
         self.CheckboxFootnotes.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxFootnotes, 'detect footnote tables and set anchors')
         self.CheckboxEmptyRows.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxEmptyRows, 'remove all empty table rows')
         self.CheckboxFalseTextBreaks.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxFalseTextBreaks, 'remove mid-sentence text breaks (e.g. when a sentence spans 2 pdf pages)')
         self.CheckboxVerticalMerge.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxVerticalMerge, 'merges tables vertically if §§ markers are set properly and column numbers are identical ')
         self.CheckboxRenamePics.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxRenamePics, 'renames saved pictures from .png to .jpg and changes the parts in the html-file')
         self.CheckboxSplitRowspan.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxSplitRowspan, 'splits vertically merged cells and moves content to top cell. works properly with colspan etc.')
         self.CheckboxSetUnorderedLists.pack(side='top', anchor='w')
+        create_tool_tip(self.CheckboxSetUnorderedLists, 'detect lists and sets them to unordered lists')
         self.CheckboxIndentUnorderedLists.pack(side='top')
+        create_tool_tip(self.CheckboxIndentUnorderedLists, 'detects eventually indented elements in above lists and indents them')
         if gf.flag_is_formatted:
             self.LabelFormatted = Label(self.FrameChecks, text='Formatted report detected', font=('Arial', 9, 'bold'),
                                         fg='red')
@@ -215,6 +224,8 @@ class UserInterface(Frame):
             self.CheckboxSpanHeaders = Checkbutton(self.FrameChecks, anchor='w', text='analyze heading (BETA)',
                                                    variable=gf.b_span_headings)
             self.CheckboxSpanHeaders.pack(side='top', anchor='w')
+            create_tool_tip(self.CheckboxSpanHeaders,
+                            'analyzes headings depending on fontsize and occurrence. ONLY FOR FORMATTED HTML files')
 
         if gf.b_fonds_report.get():
             self.LabelFondsReport = Label(self.FrameChecks, text='Fonds report detected', font=('Arial', 9, 'bold'),
@@ -225,7 +236,11 @@ class UserInterface(Frame):
             self.CheckboxBreakFondsTable = Checkbutton(self.FrameChecks, anchor='w', text='break Vermögensaufstellung',
                                                        variable=gf.b_break_fonds_table)
             self.CheckboxTsdFix.pack(side='top', anchor='w')
+            create_tool_tip(self.CheckboxTsdFix,
+                            'fixes falsely separated numbers in cell, which follow this pattern: 1 234 123.124241')
             self.CheckboxBreakFondsTable.pack(side='top', anchor='w')
+            create_tool_tip(self.CheckboxBreakFondsTable,
+                            'only for fonds-reports that need you to insert "shift+enter" breaks in the first column and header of the "Vermögensaufstellungs"-table')
 
     def update_lists(self):
         self.ListboxNumbers.clear_list()

@@ -122,10 +122,10 @@ def is_date(date_input, ignore_whitespace=False):
     """
     try:
         if not ignore_whitespace:
-            parser.parse(date_input, parserinfo=GermanParserInfo())
+            parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
         else:
             date_input = re.sub('\s', '', date_input)
-            parser.parse(date_input, parserinfo=GermanParserInfo())
+            parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
         return True
     # TODO: catch exceptions properly
     except:
