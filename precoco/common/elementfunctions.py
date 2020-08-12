@@ -190,23 +190,29 @@ def remove_false_text_breaks(tree):
     :param tree:
     :return: tree
     """
-    # TODO: something deletes paragraphs
     all_text_elements = tree.xpath('/html/body/p')
     for i in range(len(all_text_elements)):
         try:
             # check end and start char of two adjacent p-tag-strings
-            if pt.reg_false_break_indicator_end.search(all_text_elements[i].text_content()) and \
-                    pt.reg_false_break_indicator_start.search(all_text_elements[i+1].text_content()):
-                # add space if needed
-                if not all_text_elements[i].text_content().endswith(' '):
-                    if gf.flag_is_formatted and all_text_elements[i + 1][0].text:
-                        all_text_elements[i + 1][0].text = ' ' + all_text_elements[i + 1][0].text
-                    elif all_text_elements[i + 1].text:
-                        all_text_elements[i + 1].text = ' ' + all_text_elements[i + 1].text
-                # append second element to first
-                all_text_elements[i].append(all_text_elements[i+1])
-                # remove the tag from second element to prevent nested paragraphs
-                all_text_elements[i+1].drop_tag()
+            pop_idx = []
+            for j in range(1, len(all_text_elements)):
+                if pt.reg_false_break_indicator_end.search(all_text_elements[i].text_content()) and \
+                        pt.reg_false_break_indicator_start.search(all_text_elements[i+j].text_content()):
+                    # add space if needed
+                    if not all_text_elements[i].text_content().endswith(' '):
+                        if gf.flag_is_formatted and all_text_elements[i + j][0].text:
+                            all_text_elements[i + j][0].text = ' ' + all_text_elements[i + j][0].text
+                        elif all_text_elements[i + j].text:
+                            all_text_elements[i + j].text = ' ' + all_text_elements[i + j].text
+                    # append second element to first
+                    all_text_elements[i].append(all_text_elements[i+j])
+                    # remove the tag from second element to prevent nested paragraphs
+                    all_text_elements[i+j].drop_tag()
+                    pop_idx.append(i+j)
+                else:
+                    for p in pop_idx:
+                        all_text_elements.pop(p)
+                    break
         except IndexError:
             # this exception is only raised when reaching the end of the list
             # so this is just ignored
