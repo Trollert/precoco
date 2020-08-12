@@ -190,6 +190,7 @@ def remove_false_text_breaks(tree):
     :param tree:
     :return: tree
     """
+    # TODO: something deletes paragraphs
     all_text_elements = tree.xpath('/html/body/p')
     for i in range(len(all_text_elements)):
         try:
@@ -668,6 +669,25 @@ def set_headers(tree):
     return tree
 
 
+def replace_custom_characters(tree):
+    table_cells = tree.xpath('//table[not(@class="footnote")]//*[text()]')
+    for cell in table_cells:
+        if cell.text is not None:
+            cell.text = re.sub(r' \)', ')', cell.text)
+            cell.text = re.sub(r']', ']', cell.text)
+            cell.text = re.sub(r'\[', '[', cell.text)
+            cell.text = re.sub(r'Telefonica|Telefönica', 'Telefónica', cell.text)
+        if len(cell):
+            for c in cell:
+                if c.tail is not None:
+                    c.tail = re.sub(r' \)', ')', c.tail)
+                    c.tail = re.sub(r']', ']', c.tail)
+                    c.tail = re.sub(r'\[', '[', c.tail)
+                    c.tail = re.sub(r'Telefonica|Telefönica', 'Telefónica', c.tail)
+    return tree
+
+
+
 def fix_tsd_separators(tree, dec_separator):
     """
     this function fixed falsly formatted numbers within tables which should be thousand-separated by a space and decimal
@@ -787,21 +807,18 @@ def pre_cleanup(tree):
     """
     for span in tree.xpath('//table//span'):
         span.drop_tag()
+    # tree = replace_custom_characters(tree)
     # replace </p><p> in tables with <br>
-    # takes the longest, might find better alternative
     for td in tree.xpath('//td[count(p)>1]'):
         for p in td.findall('p')[:-1]:
-            p.append(etree.Element('br'))
+            br = etree.Element('br')
+            br.tail = ' '
+            p.append(br)
         # print(html.tostring(td))
 
     # remove p tags in tables
     for p in tree.xpath('//table//p'):
         p.drop_tag()
-        if p.text:
-            # print(p.text_content())
-            # print('-------------')
-            # p.text = re.sub(r'[\n\r]', '', p.text)
-            p.text = re.sub(r'\s{2,}', ' ', p.text)
 
     # for t in tree.xpath('//table'):
     #     print(html.tostring(t))
@@ -832,19 +849,21 @@ def pre_cleanup(tree):
                             i.tail = re.sub(r'\)\s*?\.', ')', i.tail)
 
     # strip all leading and trailing white space in tables
-    for td in tree.xpath('//table//td'):
-        if td.text is not None:
-            td.text = td.text.strip()
-        if len(td):
-            for tail in td:
-                if tail.tail is not None:
-                    tail.tail = tail.tail.strip()
+    # for td in tree.xpath('//table//td'):
+    #     if td.text is not None:
+    #         td.text = td.text.strip()
+    #     if len(td):
+    #         for tail in td:
+    #             if tail.tail is not None:
+    #                 tail.tail = tail.tail.strip()
 
     for txt in tree.xpath('body//*[text()]'):
         if txt.text is not None:
             txt.text = re.sub(r'\s{2,}', ' ', txt.text)
+            txt.text = re.sub(r'\n', '', txt.text)
         if txt.tail is not None:
             txt.tail = re.sub(r'\s{2,}', ' ', txt.tail)
+            txt.tail = re.sub(r'\n', '', txt.tail)
 
     # remove li tags in td elements
     for li in tree.xpath('//td/li'):
@@ -881,6 +900,7 @@ def pre_cleanup(tree):
     for sup in tree.xpath('//*[self:: sup or self::sub]'):
         if sup.text is None:
             sup.drop_tag()
+        # ToDO: exclude if list of footnote tags [1), 2), ...]
         elif any(list(reg.fullmatch(sup.text) for reg in pt.regUnorderedList)):
             sup.drop_tag()
         elif not any(list(reg.fullmatch(sup.text) for reg in pt.regFootnote)) \
@@ -964,6 +984,7 @@ def generate_final_tree(arg_list):
 
     post_cleanup(tree, file_path)
     gf.error_log.clear()
+    gf.flag_found_error = False
     messagebox.showinfo('File generated!', 'File successfully generated!')
 
 
