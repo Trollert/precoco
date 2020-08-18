@@ -1,6 +1,7 @@
 import pickle
 import re
 import os
+
 from lxml import etree, html
 from lxml.html.clean import Cleaner
 from textwrap import wrap as text_wrap
@@ -22,7 +23,7 @@ def get_false_numbers(tree, path):
     """
     # check numbers in table cells
     # get all tables that are not footnote tables
-    el_table_text_cells = tree.xpath('//table[not(@class="footnote")]//*[normalize-space(text())]')
+    el_table_text_cells = tree.xpath('//table[not(@class="footnote")]/tr/td[position()>1 and normalize-space(text())]')
     list_false_number_matches = []
     # if save numbers file exists, replace matches before finding new ones
     if os.path.exists(path + '/save_numbers.pkl'):
@@ -40,30 +41,35 @@ def get_false_numbers(tree, path):
                 remove_br_tag(cell)
             elif is_date(cell.text_content()):
                 remove_br_tag(cell)
-            elif is_date(cell.text_content(), ignore_whitespace=True):
-                remove_br_tag(cell)
-                cell.text = re.sub('\s', '', cell.text)
+            # elif is_date(cell.text_content(), ignore_whitespace=True):
+            #     remove_br_tag(cell)
+            #     cell.text = re.sub('\s', '', cell.text)
             elif any(reg.fullmatch(cell.text_content()) for reg in pt.regMisc + pt.regHeaderContent):
                 continue
             # if no match could be found, try to fix it or move it to false match list
             else:
                 if gf.b_fix_numbers.get():
                     # if cell only contains number tokens, try to fix format
-                    if re.fullmatch(r'[0-9,. \-+]*', cell.text_content()):
+
+                    if re.fullmatch(r'[0-9,. ()\-+\n]*', cell.text_content()):
                         # drop br-tag if one is found
-                        remove_br_tag(cell)
+                        if cell.find('br') is not None:
+                            # print(cell.text_content())
+                            if is_number(re.sub(r'[\n\s]*?', '', cell.text_content())):
+                                remove_br_tag(cell)
+
                         # if, after removing whitespace, the resulting format matches a number format,
                         # remove the whitespace from tree element
-                        if any(reg.fullmatch(re.sub(r'\s+', '', cell.text)) for reg in pt.regNumbers):
+                        if is_number(re.sub(r'\s+', '', cell.text)):
                             cell.text = re.sub(r'\s+', '', cell.text)
                         # if you cant fix it, append to false number list
                         else:
                             list_false_number_matches.append(cell.text)
                     # otherwise append it to false number match list
                     else:
-                        list_false_number_matches.append(cell.text)
+                        list_false_number_matches.append(cell.text_content())
                 else:
-                    list_false_number_matches.append(cell.text)
+                    list_false_number_matches.append(cell.text_content())
     list_false_number_matches = list(dict.fromkeys(list_false_number_matches))
     return list_false_number_matches
 
@@ -104,6 +110,9 @@ def get_false_words(tree, path):
             url_matches = [x[0] for x in pt.regURL.findall(e.text_content())]
             for regex_match in pt.regFalseWords:
                 list_current_matches = regex_match.findall(e.text_content())
+                for i in range(len(list_current_matches)):
+                    if isinstance(list_current_matches[i], tuple):
+                        list_current_matches[i] = list_current_matches[i][0]
                 # if matches were found
                 if list_current_matches:
                     # print(list_current_matches)
@@ -127,9 +136,10 @@ def replace_number_list(tree, list_new, list_old, report_path):
     :param report_path: path to report dir
     :return: tree
     """
-    el_numbers_table = tree.xpath('//table[not(@class="footnote")]/tr/td[normalize-space(text())]')
+    # el_table_text_ce = tree.xpath('//table[not(@class="footnote")]//*[normalize-space(text())]')
+    el_numbers_table = tree.xpath('//table[not(@class="footnote")]/tr/td[position()>1 and normalize-space(text())]')
     # get a list of listbox lines
-    list_temp_new = list_new.copy()
+    list_temp_new = list(list_new).copy()
     list_temp_old = list_old.copy()
     for i in reversed(range(len(list_temp_old))):
         if list_temp_old[i] == list_temp_new[i]:
@@ -137,12 +147,20 @@ def replace_number_list(tree, list_new, list_old, report_path):
             list_temp_new.pop(i)
 
     # create file to safe already replaced numbers in case of error
-    save_replacements(dict(zip(list_temp_old, list_temp_new)), '/save_numbers.pkl', report_path)
+    replacements = dict(zip(list_temp_old, list_temp_new))
+    save_replacements(replacements, '/save_numbers.pkl', report_path)
 
-    for e in el_numbers_table:
-        for i in range(len(list_temp_new)):
-            if e.text:
-                e.text = e.text.replace(list_temp_old[i], list_temp_new[i])
+    for cell in el_numbers_table:
+        if cell.text is not None:
+            for old, new in replacements.items():
+                # print(f'{cell.text} -> {old} to {new}')
+                cell.text = cell.text.replace(old, new)
+
+
+    # for e in el_numbers_table:
+    #     for i in range(len(list_temp_new)):
+    #         if e.text:
+    #             e.text = e.text.replace(list_temp_old[i], list_temp_new[i])
     return tree
 
 
@@ -431,6 +449,113 @@ def merge_tables_vertically(tree):
     return tree
 
 
+def merge_tables_vertically_2(tree):
+    """
+    the function merges marked tables vertically if the number of columns match up
+    displays warnings if the user wants to merge tables with different amounts of columns
+    :param tree:
+    :return: tree
+    """
+    el_merge_tables = tree.xpath(
+        '//table[tr[1]/td[1][starts-with(normalize-space(text()),"§§")] or tr[last()]/td[last()][starts-with(normalize-space(text()),"§§")]]')
+    list_to_merge = []
+    flag_continue_merge = False
+    for table in el_merge_tables:
+        iCols = []
+        flag_start_marker = table.xpath('./tr[1]/td[1][starts-with(normalize-space(text()),"§§")]')
+        flag_end_marker = table.xpath('./tr[last()]/td[last()][starts-with(normalize-space(text()),"§§")]')
+        # check if table has end marker (§§)
+        if flag_end_marker:
+            # and start marker?
+            if flag_start_marker:
+                # is merge list empty?
+                if not list_to_merge:
+                    # BUG
+                    add_to_error_log('Error in marker start or end position! Check the markers in ABBYY!\n'
+                            'Error found in table with start marker: ' + str(table.xpath('./tr[1]/td[1]/text()')) + '\n'
+                            'and end marker: '
+                                     + str(table.xpath('./tr[last()]/td[last()]/text()')))
+                    flag_continue_merge = False
+                    gf.flag_found_error = True
+                    continue
+                else:
+                    list_to_merge.append(table)
+                    flag_continue_merge = True
+            else:
+                list_to_merge.append(table)
+                flag_continue_merge = True
+        elif flag_start_marker:
+            if get_max_columns(table.getprevious()) == get_max_columns(table):
+                list_to_merge.append(table)
+                flag_continue_merge = True
+            elif not list_to_merge:
+                # BUG
+                add_to_error_log('Error in start marker position! Check the markers in ABBYY!\n'
+                      'Error found in table with start marker: ' + str(table.xpath('./tr[1]/td[1]/text()')))
+                flag_continue_merge = False
+                gf.flag_found_error = True
+                continue
+            else:
+                list_to_merge.append(table)
+                flag_continue_merge = False
+        else:
+            add_to_error_log('No markers detected, this shouldnt happen, report this bug!')
+            gf.flag_found_error = True
+            break
+        # next table included in merge?
+        # if not merge collected tables
+        if not flag_continue_merge:
+            # check if all tables in merge list have the same number of columns
+            i_col_numbers = []
+            index_tables = []
+            for mTable in list_to_merge:
+                i_col_numbers.append(get_max_columns(mTable))
+                # get indices of tables to merge
+                index_tables.append(tree.find('body').index(mTable))
+            # do all merging candidates have the same number of columns?
+            if len(set(i_col_numbers)) == 1:
+                # before merging, check whether all the tables in this merging process are consecutive tables within
+                # the body tag
+                # if not only raise warning
+                # TODO: raise warning and give user option to not proceed
+                if index_tables != list(range(min(index_tables), max(index_tables)+1)):
+                    add_to_error_log('You try to merge tables that are not consecutive within the html.\n'
+                          'Please check the table set beginning with'
+                          ' ' + str(list_to_merge[0].xpath('./tr[last()]/td[last()]/text()')) + ' as end marker, ' +
+                                     str(len(list_to_merge)) + ' subtables and ' +
+                                     str(i_col_numbers) + ' columns.\n\n'
+                          'This is fairly unusual, but the merging process will still be executed.\n'
+                          'Redo the processing after fixing in ABBYY or Sourcecode, if this was not intentional!')
+                    gf.flag_found_error = True
+                # remove end marker
+                # for first table
+                list_to_merge[0].xpath('./tr[last()]/td[last()]')[0].text = list_to_merge[0].xpath('./tr[last()]/td[last()]')[
+                    0].text.replace('§§', '')
+                for i in range(1, len(list_to_merge)):
+                    # remove start markers
+                    if list_to_merge[i].xpath('./tr[1]/td[1]')[0].text is not None:
+                        list_to_merge[i].xpath('./tr[1]/td[1]')[0].text = list_to_merge[i].xpath('./tr[1]/td[1]')[
+                            0].text.replace('§§', '')
+                    # remove end markers
+                    # and every other table
+                    if list_to_merge[i].xpath('./tr[last()]/td[last()]')[0].text is not None:
+                        list_to_merge[i].xpath('./tr[last()]/td[last()]')[0].text = \
+                            list_to_merge[i].xpath('./tr[last()]/td[last()]')[0].text.replace('§§', '')
+                    # append all rows from all tables to first table
+                    for row in list_to_merge[i]:
+                        list_to_merge[0].append(row)
+                    # remove now empty table
+                    list_to_merge[i].getparent().remove(list_to_merge[i])
+            else:
+                add_to_error_log(
+                    'You try to merge tables with different amount of table columns. Fix this in ABBYY or CoCo! Tables will not be merged!')
+                add_to_error_log('Table end marker: ' + str(list_to_merge[0].xpath('./tr[last()]/td[last()]/text()')))
+                add_to_error_log('The number of columns within the subtables are: ' + str(i_col_numbers))
+                gf.flag_found_error = True
+            list_to_merge.clear()
+    return tree
+
+
 def split_rowspan(tree):
     """
     this function is very complex because of the nature of tables and cell-merging in html
@@ -581,17 +706,20 @@ def set_footnote_tables(tree):
         el_first_col_cells = []
         list_b_is_anchor = []
         # check first whether table is exactly 2 columns wide
-        if len(el_tables[table].xpath('.//tr[last()]/td')) == 2:
+        if get_max_columns(el_tables[table]) == 2:
             # create list from first column values
             el_first_col_cells.append(el_tables[table].xpath('.//tr/td[1]'))
+
             # flatten list
             el_first_col_cells = [item for sublist in el_first_col_cells for item in sublist]
             # check if any footnote regex pattern matches, if yes set corresponding matches list value to true
             for cell in el_first_col_cells:
                 # remove sup, sub-tags if found
-                for el in cell:
-                    if el.tag == 'sup' or el.tag == 'sub':
-                        el.drop_tag()
+                all_subs = cell.xpath('sub|sup')
+                if all_subs is not None:
+                    if any(regex.fullmatch(cell.text_content()) for regex in pt.regFootnote):
+                        for s in all_subs:
+                            s.drop_tag()
                 # create list with bool values of every regex, td-value match
                 if cell.text is not None:
                     list_b_is_anchor.append(any(list(reg.fullmatch(cell.text) for reg in pt.regFootnote)))
@@ -693,7 +821,6 @@ def replace_custom_characters(tree):
     return tree
 
 
-
 def fix_tsd_separators(tree, dec_separator):
     """
     this function fixed falsly formatted numbers within tables which should be thousand-separated by a space and decimal
@@ -706,7 +833,7 @@ def fix_tsd_separators(tree, dec_separator):
     """
     # exclude header and leftmost column from reformatting
     for table in tree.xpath('//table[not(@class="footnote")]'):
-        for cell in table.xpath('.//tbody/tr/td[position() > 1]'):
+        for cell in table.xpath('.//tr/td[position() > 1]'):
             if cell.text is not None:
                 # only affect cells with numbers
                 if re.fullmatch('-?\s?[\d\s,]+', cell.text):
@@ -865,10 +992,10 @@ def pre_cleanup(tree):
 
     for txt in tree.xpath('body//*[text()]'):
         if txt.text is not None:
-            txt.text = re.sub(r'\s{2,}', ' ', txt.text)
+            txt.text = re.sub(r' {2,}', ' ', txt.text)
             txt.text = re.sub(r'\n', '', txt.text)
         if txt.tail is not None:
-            txt.tail = re.sub(r'\s{2,}', ' ', txt.tail)
+            txt.tail = re.sub(r' {2,}', ' ', txt.tail)
             txt.tail = re.sub(r'\n', '', txt.tail)
 
     # remove li tags in td elements
@@ -912,6 +1039,11 @@ def pre_cleanup(tree):
         elif not any(list(reg.fullmatch(sup.text) for reg in pt.regFootnote)) \
                 and not any(re.fullmatch(e, sup.text) for e in pt.lSupElements):
             sup.drop_tag()
+
+    for sub in tree.xpath('//td/*[self:: sub]'):
+        if sub.text is not '2':
+            sub.drop_tag()
+
     return tree
 
 
@@ -974,14 +1106,13 @@ def generate_final_tree(arg_list):
         tree = set_unordered_list(tree)
     if gf.b_set_footnotes.get():
         tree = set_footnote_tables(tree)
-    if gf.b_set_headers.get():
-        tree = set_headers(tree)
     if gf.b_fonds_report.get():
         if gf.b_fix_tsd_separators.get():
-            tree = fix_tsd_separators(tree, '.')
+            tree = fix_tsd_separators(tree, ',')
         if gf.b_break_fonds_table.get():
             tree = break_fonds_table(tree)
-
+    if gf.b_set_headers.get():
+        tree = set_headers(tree)
     if gf.b_rename_pics.get():
         tree = rename_pictures(tree, file_path)
 
@@ -1010,12 +1141,15 @@ def get_max_columns(table):
     firstRow = table.xpath('./tr[1]/td')
     nr_cols = 0
     # if there is a colspan in the row, increase by colspan value
-    for td in firstRow:
-        if td.get('colspan') is not None:
-            nr_cols += int(td.get('colspan'))
-        else:
-            nr_cols += 1
-    return nr_cols
+    if firstRow is not None:
+        for td in firstRow:
+            if td.get('colspan') is not None:
+                nr_cols += int(td.get('colspan'))
+            else:
+                nr_cols += 1
+        return nr_cols
+    else:
+        return None
 
 
 def add_to_error_log(text):

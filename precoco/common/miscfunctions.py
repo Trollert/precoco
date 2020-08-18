@@ -9,6 +9,7 @@ from dateutil import parser
 import re
 import pickle
 from precoco.common.globalflags import root_dir
+from dateparser import parse
 
 Config = configparser.ConfigParser()
 
@@ -113,6 +114,25 @@ class GermanParserInfo(parser.parserinfo):
               ("Dez.", "Dezember")]
 
 
+# def is_date(date_input, ignore_whitespace=False):
+#     """
+#     accepts a string which is evaluated whether it represents a date
+#     :param date_input: str
+#     :param ignore_whitespace: bool
+#     :return: bool
+#     """
+#     try:
+#         parseddate = None
+#         if not ignore_whitespace:
+#             parseddate = parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
+#         else:
+#             date_input = re.sub('\s', '', date_input)
+#             parseddate = parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
+#         return parseddate
+#     # TODO: catch exceptions properly
+#     except:
+#         return False
+
 def is_date(date_input, ignore_whitespace=False):
     """
     accepts a string which is evaluated whether it represents a date
@@ -121,12 +141,13 @@ def is_date(date_input, ignore_whitespace=False):
     :return: bool
     """
     try:
+        parseddate = None
         if not ignore_whitespace:
-            parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
+            parseddate = parse(date_input, languages=['de', 'en'], settings={'RETURN_AS_TIMEZONE_AWARE': False, 'STRICT_PARSING': True})
         else:
             date_input = re.sub('\s', '', date_input)
-            parser.parse(date_input, parserinfo=GermanParserInfo(), ignoretz=True)
-        return True
+            parseddate = parse(date_input, languages=['de', 'en'], settings={'RETURN_AS_TIMEZONE_AWARE': False, 'STRICT_PARSING': True})
+        return parseddate
     # TODO: catch exceptions properly
     except:
         return False
