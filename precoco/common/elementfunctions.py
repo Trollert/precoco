@@ -1128,8 +1128,6 @@ def generate_final_tree(arg_list):
 ####################
 # Helper functions #
 ####################
-
-
 def get_max_columns(table):
     """
     Returns the passed tables maximum number of columns.
@@ -1180,6 +1178,7 @@ def remove_br_tag(cell, add_whitespace=False):
         return True
     else:
         return False
+
 
 def split_non_consecutive(data):
     """
