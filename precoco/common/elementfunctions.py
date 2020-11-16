@@ -1053,7 +1053,7 @@ def post_cleanup(tree, file_path):
     for h in tree.xpath('//*[self::h1 or self::h2 or self::h3]/br/parent::*'):
         br = h.findall('br')
         if len(br):
-            for i in range(len(br)):
+            for i in range(len(br)-1):
                 if not br[i].tail and br[i+1].tail:
                     sibling = etree.Element(h.tag)
                     sibling.insert(0, br[i+1])
@@ -1168,6 +1168,9 @@ def is_number(cell):
             return True
     return False
 
+# TODO: remove false breaks ignores tables etc., that shouldn't happen, check if merging texts are consecutive
+# TODO: Improve Fonds Report detection
+# TODO: Reopening new reports doesn't flip fonds-flag, don't reset color highlighting
 
 def remove_br_tag(cell, add_whitespace=False):
     if cell.find('br') is not None:

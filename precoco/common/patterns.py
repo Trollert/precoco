@@ -14,7 +14,7 @@ regFootnote = [
 
 # compile number format as regex objects
 regNumbers = [
-    re.compile('(^\s*?(§§)?[(\[]?([-+€T$£/]{1,3}\s*?)?\d{1,3}([,\.]\d{1,5})?(\s*?[€$%£T]{1,2}\s*?)?[)\]]?$)', re.MULTILINE),
+    re.compile('(^\s*?(§§)?[(\[]?([-+€T$£/]{1,3}\s*?)?\d{1,3}([,\.]\d{1,10})?(\s*?[€$%£T]{1,2}\s*?)?[)\]]?$)', re.MULTILINE),
     # 123 has to be first, to prevent double matches
     re.compile('(^\s*?(§§)?[(\[]?\s*?[-+T€/$£]{0,3}\s*?\d{1,3}(\.\d{3})+([,\.]\d{1,5})?(\s*?[€%$‰£])?[)\]]?\s*?(p\.a\.)?\s*?$)', re.MULTILINE),
     # 123.123,12000 ; 123,1
@@ -43,7 +43,7 @@ regHeaderContent = [
 ]
 
 regUnorderedList = [
-    re.compile('^\s*?[\\\\►•·■\-□▪^→/]{1,2}\s?', re.MULTILINE)
+    re.compile('^\s*?[\\\\►•·■\-□▪^→/>]{1,2}\s?', re.MULTILINE)
 ]
 
 regFalseWords = [
